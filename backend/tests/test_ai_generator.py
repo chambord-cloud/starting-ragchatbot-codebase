@@ -123,6 +123,11 @@ class TestGenerateResponse:
             first_call_kwargs = mock_create.call_args_list[0].kwargs
             assert first_call_kwargs["tools"] == tools
 
+            # Second call should also have tools (model could call again)
+            second_call_kwargs = mock_create.call_args_list[1].kwargs
+            assert second_call_kwargs["tools"] == tools
+            assert second_call_kwargs["tool_choice"] == "auto"
+
     def test_tool_call_executed_with_correct_arguments(self, ai_gen, tool_manager):
         """Tool call arguments are parsed and forwarded correctly."""
         tools = [{"type": "function", "function": {"name": "search_course_content"}}]
@@ -218,4 +223,140 @@ class TestGenerateResponse:
             mock_create.return_value = _response(content=None)
 
             result = ai_gen.generate_response(query="Bad query")
+            assert result == ""
+
+    def test_two_sequential_tool_rounds(self, ai_gen, tool_manager):
+        """Model calls a tool, sees results, calls another tool, then answers."""
+        tools = [{"type": "function", "function": {"name": "search_course_content"}},
+                 {"type": "function", "function": {"name": "get_course_outline"}}]
+
+        with patch.object(ai_gen.client.chat.completions, "create") as mock_create:
+            mock_create.side_effect = [
+                _response(tool_calls=[
+                    _tool_call(name="get_course_outline",
+                               arguments='{"course_name": "Course X"}')
+                ]),
+                _response(tool_calls=[
+                    _tool_call(name="search_course_content",
+                               arguments='{"query": "lesson 4 topic"}')
+                ]),
+                _response(content="Course Y covers the same topic as lesson 4 of Course X.")
+            ]
+
+            result = ai_gen.generate_response(
+                query="Find a course that discusses the same topic as lesson 4 of course X",
+                tools=tools,
+                tool_manager=tool_manager
+            )
+
+            assert mock_create.call_count == 3
+            assert tool_manager.execute_tool.call_count == 2
+            assert result == "Course Y covers the same topic as lesson 4 of Course X."
+
+            # Tools present in all tool-calling rounds
+            for call_idx in range(3):
+                kwargs = mock_create.call_args_list[call_idx].kwargs
+                assert kwargs["tools"] == tools
+                assert kwargs["tool_choice"] == "auto"
+
+    def test_max_rounds_enforced(self, ai_gen, tool_manager):
+        """Model keeps requesting tools — max 2 rounds, then forced synthesis."""
+        tools = [{"type": "function", "function": {"name": "search_course_content"}}]
+
+        with patch.object(ai_gen.client.chat.completions, "create") as mock_create:
+            mock_create.side_effect = [
+                _response(tool_calls=[_tool_call(arguments='{"query": "first"}')]),
+                _response(tool_calls=[_tool_call(arguments='{"query": "second"}')]),
+                _response(tool_calls=[_tool_call(arguments='{"query": "third"}')]),
+                _response(content="Final answer after all searches.")
+            ]
+
+            result = ai_gen.generate_response(
+                query="Complex multi-part question",
+                tools=tools,
+                tool_manager=tool_manager
+            )
+
+            # 1 initial + 2 in-loop + 1 final synthesis without tools = 4
+            assert mock_create.call_count == 4
+            assert tool_manager.execute_tool.call_count == 2
+
+            # Final synthesis call must NOT include tools
+            final_call_kwargs = mock_create.call_args_list[3].kwargs
+            assert "tools" not in final_call_kwargs
+            assert "tool_choice" not in final_call_kwargs
+
+            assert result == "Final answer after all searches."
+
+    def test_tool_exception_caught(self, ai_gen, tool_manager):
+        """Tool raises an exception — error fed back, model continues to answer."""
+        tools = [{"type": "function", "function": {"name": "search_course_content"}}]
+        tool_manager.execute_tool.side_effect = RuntimeError("Database unavailable")
+
+        with patch.object(ai_gen.client.chat.completions, "create") as mock_create:
+            mock_create.side_effect = [
+                _response(tool_calls=[_tool_call(arguments='{"query": "MCP"}')]),
+                _response(content="I was unable to search due to an error.")
+            ]
+
+            result = ai_gen.generate_response(
+                query="What is MCP?",
+                tools=tools,
+                tool_manager=tool_manager
+            )
+
+            assert mock_create.call_count == 2
+            assert result == "I was unable to search due to an error."
+
+            # Error message was passed as tool result content
+            second_call_messages = mock_create.call_args_list[1].kwargs["messages"]
+            tool_messages = [m for m in second_call_messages if m["role"] == "tool"]
+            assert len(tool_messages) == 1
+            assert "Error executing" in tool_messages[0]["content"]
+            assert "Database unavailable" in tool_messages[0]["content"]
+
+    def test_tool_error_string_not_fatal(self, ai_gen, tool_manager):
+        """Tool returns error string (not exception) — loop continues normally."""
+        tools = [{"type": "function", "function": {"name": "search_course_content"}}]
+        tool_manager.execute_tool.return_value = "Error: No results found for this query."
+
+        with patch.object(ai_gen.client.chat.completions, "create") as mock_create:
+            mock_create.side_effect = [
+                _response(tool_calls=[_tool_call(arguments='{"query": "obscure term"}')]),
+                _response(content="No information was found about that term.")
+            ]
+
+            result = ai_gen.generate_response(
+                query="Tell me about obscure term",
+                tools=tools,
+                tool_manager=tool_manager
+            )
+
+            assert mock_create.call_count == 2
+            assert result == "No information was found about that term."
+
+            # Error string was passed as tool result
+            second_call_messages = mock_create.call_args_list[1].kwargs["messages"]
+            tool_messages = [m for m in second_call_messages if m["role"] == "tool"]
+            assert len(tool_messages) == 1
+            assert "No results found" in tool_messages[0]["content"]
+
+    def test_empty_content_after_final_synthesis(self, ai_gen, tool_manager):
+        """Final synthesis call returns None content after max rounds."""
+        tools = [{"type": "function", "function": {"name": "search_course_content"}}]
+
+        with patch.object(ai_gen.client.chat.completions, "create") as mock_create:
+            mock_create.side_effect = [
+                _response(tool_calls=[_tool_call(arguments='{"query": "first"}')]),
+                _response(tool_calls=[_tool_call(arguments='{"query": "second"}')]),
+                _response(tool_calls=[_tool_call(arguments='{"query": "third"}')]),
+                _response(content=None)
+            ]
+
+            result = ai_gen.generate_response(
+                query="Query that exhausts all rounds",
+                tools=tools,
+                tool_manager=tool_manager
+            )
+
             assert result == ""

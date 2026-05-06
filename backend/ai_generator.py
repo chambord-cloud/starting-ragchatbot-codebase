@@ -15,7 +15,7 @@ Available Tools:
 Tool Usage:
 - Use search_course_content **only** for questions about specific course content or detailed educational materials
 - Use get_course_outline when the user asks about course structure, lesson list, course overview, or outline
-- **One tool call per query maximum**
+- **Up to 2 sequential tool-calling rounds per query**: In each round you may call one or more tools simultaneously. After receiving results, decide whether you need another round before answering.
 - Synthesize tool results into accurate, fact-based responses
 - If a tool yields no results, state this clearly without offering alternatives
 
@@ -45,7 +45,10 @@ Provide only the direct answer to what was asked.
                          tools: Optional[List] = None,
                          tool_manager=None) -> str:
         """
-        Generate AI response with optional tool usage and conversation context.
+        Generate AI response with optional sequential tool usage.
+
+        Supports up to 2 rounds of tool calling. Each round the model sees
+        previous tool results and can request additional tools before answering.
 
         Args:
             query: The user's question or request
@@ -81,36 +84,44 @@ Provide only the direct answer to what was asked.
         response = self.client.chat.completions.create(**api_params)
         message = response.choices[0].message
 
-        if message.tool_calls and tool_manager:
-            return self._handle_tool_execution(messages, message, tool_manager)
+        if not message.tool_calls or not tool_manager:
+            return message.content or ""
 
-        return message.content or ""
+        max_rounds = 2
+        for _ in range(max_rounds):
+            messages.append(message)
 
-    def _handle_tool_execution(self, messages: list, assistant_message, tool_manager) -> str:
-        """
-        Execute tool calls from the model and get a follow-up response.
+            for tool_call in message.tool_calls:
+                try:
+                    result = tool_manager.execute_tool(
+                        tool_call.function.name,
+                        **json.loads(tool_call.function.arguments)
+                    )
+                except Exception as e:
+                    result = f"Error executing {tool_call.function.name}: {str(e)}"
 
-        Args:
-            messages: The message list so far (system + user)
-            assistant_message: The assistant message containing tool_calls
-            tool_manager: Manager to execute tools
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tool_call.id,
+                    "content": result
+                })
 
-        Returns:
-            Final response text after tool execution
-        """
-        messages.append(assistant_message)
+            api_params = {
+                "model": self.model,
+                "messages": messages,
+                "temperature": 0,
+                "max_tokens": 800,
+                "tools": tools,
+                "tool_choice": "auto"
+            }
 
-        for tool_call in assistant_message.tool_calls:
-            tool_name = tool_call.function.name
-            arguments = json.loads(tool_call.function.arguments)
-            result = tool_manager.execute_tool(tool_name, **arguments)
+            response = self.client.chat.completions.create(**api_params)
+            message = response.choices[0].message
 
-            messages.append({
-                "role": "tool",
-                "tool_call_id": tool_call.id,
-                "content": result
-            })
+            if not message.tool_calls:
+                return message.content or ""
 
+        # Max rounds reached — force final answer without tools
         final_response = self.client.chat.completions.create(
             model=self.model,
             messages=messages,
