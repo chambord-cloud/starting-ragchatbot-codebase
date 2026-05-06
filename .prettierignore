@@ -1,0 +1,9 @@
+node_modules/
+backend/
+docs/
+.claude/
+__pycache__/
+*.py
+*.pyc
+uv.lock
+pyproject.toml
