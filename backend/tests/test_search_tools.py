@@ -195,8 +195,7 @@ class TestCourseOutlineTool:
             ]
         }
         result = outline_tool.execute(course_name="MCP")
-        assert "# MCP: Build Rich-Context AI Apps" in result
-        assert "[Course Link](https://example.com/mcp)" in result
+        assert "# [MCP: Build Rich-Context AI Apps](https://example.com/mcp)" in result
         assert "## Lessons (2 total)" in result
         assert "- Lesson 0: Introduction" in result
         assert "- Lesson 1: Getting Started" in result
@@ -221,7 +220,7 @@ class TestCourseOutlineTool:
         result = outline_tool.execute(course_name="MCP")
         assert "[Lesson 0: Introduction](https://example.com/mcp/lesson/0)" in result
         assert "- Lesson 1: Getting Started" in result
-        assert "[Course Link](https://example.com/mcp)" in result
+        assert "# [MCP Course](https://example.com/mcp)" in result
 
 
 # ── ToolManager tests ──────────────────────────────────────────────────────

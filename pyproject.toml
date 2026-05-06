@@ -25,4 +25,14 @@ required-environments = [
 [dependency-groups]
 dev = [
     "pytest>=9.0.3",
+    "httpx>=0.28.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
+pythonpath = ["backend"]
+markers = [
+    "unit: Unit tests for individual components",
+    "integration: Integration tests for component interactions",
+    "api: API endpoint tests",
 ]

@@ -123,7 +123,7 @@ class TestRAGSystemQuery:
 
         call_args = rag_system.ai_generator.generate_response.call_args
         kwargs = call_args.kwargs
-        assert "Answer this question about course materials" in kwargs["query"]
+        assert kwargs["query"] == "How does MCP work?"
 
     def test_query_passes_tools_and_tool_manager(self, rag_system):
         rag_system.ai_generator.generate_response.return_value = "Answer"
@@ -231,4 +231,4 @@ class TestRAGSystemDocumentProcessing:
     def test_get_course_analytics_empty(self, rag_system):
         analytics = rag_system.get_course_analytics()
         assert analytics["total_courses"] == 0
-        assert analytics["course_titles"] == []
+        assert analytics["courses"] == []
