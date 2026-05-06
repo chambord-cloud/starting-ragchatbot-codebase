@@ -3,6 +3,10 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from pydantic import BaseModel
+from typing import List, Optional
 
 # Make bare imports like "from vector_store import VectorStore" work
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -185,3 +189,107 @@ def mock_config():
         MAX_HISTORY=2,
         CHROMA_PATH="./chroma_test_db"
     )
+
+
+# ── API test fixtures ─────────────────────────────────────────────────────
+
+def create_test_app(mock_rag):
+    """
+    Build a FastAPI app with the same API routes as app.py but without
+    static file mounting or startup events. This avoids importing app.py
+    directly, which would fail when ../frontend doesn't exist in tests.
+    """
+    from fastapi import FastAPI, HTTPException
+    from fastapi.middleware.cors import CORSMiddleware
+
+    test_app = FastAPI(title="Test RAG System")
+
+    test_app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+        expose_headers=["*"],
+    )
+
+    class QueryRequest(BaseModel):
+        query: str
+        session_id: Optional[str] = None
+
+    class SourceInfo(BaseModel):
+        label: str
+        url: Optional[str] = None
+
+    class QueryResponse(BaseModel):
+        answer: str
+        sources: List[SourceInfo]
+        session_id: str
+
+    class CourseInfo(BaseModel):
+        title: str
+        course_link: Optional[str] = None
+
+    class CourseStats(BaseModel):
+        total_courses: int
+        courses: List[CourseInfo]
+
+    @test_app.post("/api/query", response_model=QueryResponse)
+    async def query_documents(request: QueryRequest):
+        try:
+            session_id = request.session_id
+            if not session_id:
+                session_id = mock_rag.session_manager.create_session()
+
+            answer, source_dicts = mock_rag.query(request.query, session_id)
+            sources = [SourceInfo(**s) for s in source_dicts]
+
+            return QueryResponse(
+                answer=answer,
+                sources=sources,
+                session_id=session_id,
+            )
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @test_app.get("/api/courses", response_model=CourseStats)
+    async def get_course_stats():
+        try:
+            analytics = mock_rag.get_course_analytics()
+            return CourseStats(
+                total_courses=analytics["total_courses"],
+                courses=[CourseInfo(**c) for c in analytics["courses"]],
+            )
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    return test_app
+
+
+@pytest.fixture
+def mock_rag_system():
+    """Mock RAGSystem with canned query responses and course analytics."""
+    from session_manager import SessionManager
+
+    rag = MagicMock()
+    rag.session_manager = SessionManager(max_history=2)
+    rag.query.return_value = (
+        "This is a test answer about course materials.",
+        [{"label": "Test Course - Lesson 1", "url": "https://example.com/lesson1"}],
+    )
+    rag.get_course_analytics.return_value = {
+        "total_courses": 2,
+        "courses": [
+            {"title": "Course A", "course_link": "https://example.com/a"},
+            {"title": "Course B", "course_link": None},
+        ],
+    }
+    return rag
+
+
+@pytest.fixture
+def client(mock_rag_system):
+    """FastAPI TestClient wired to a test app with a mocked RAG system."""
+    app = create_test_app(mock_rag_system)
+    with TestClient(app) as tc:
+        yield tc
