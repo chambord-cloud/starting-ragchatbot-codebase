@@ -5,6 +5,10 @@ const API_URL = '/api';
 marked.use({
     renderer: {
         link({ href, title, text }) {
+            // Guard against malformed links from AI responses
+            if (!href || href === 'undefined' || href === 'null' || href === '#') {
+                return text || href || '';
+            }
             const titleAttr = title ? ` title="${title}"` : '';
             return `<a href="${href}" target="_blank" rel="noopener"${titleAttr}>${text}</a>`;
         }
