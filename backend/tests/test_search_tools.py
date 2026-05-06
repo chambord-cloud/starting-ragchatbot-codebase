@@ -151,10 +151,9 @@ class TestCourseSearchToolSources:
     def test_no_url_when_both_links_none(self, search_tool, mock_store):
         mock_store.lesson_link_return = None
         mock_store.course_link_return = None
-        search_tool.execute(query="test")
-        # Check the formatted result has no URL
         result = search_tool.execute(query="test")
-        assert not result.startswith("[Test Course - Lesson 1](")
+        # Plain text label, no brackets to avoid AI hallucinating a link
+        assert result.startswith("Test Course - Lesson 1\n")
 
     def test_source_label_without_lesson_number(self, search_tool, mock_store):
         mock_store.search_return = SearchResults(
@@ -197,7 +196,7 @@ class TestCourseOutlineTool:
         }
         result = outline_tool.execute(course_name="MCP")
         assert "# MCP: Build Rich-Context AI Apps" in result
-        assert "Course Link: https://example.com/mcp" in result
+        assert "[Course Link](https://example.com/mcp)" in result
         assert "## Lessons (2 total)" in result
         assert "- Lesson 0: Introduction" in result
         assert "- Lesson 1: Getting Started" in result
@@ -206,6 +205,23 @@ class TestCourseOutlineTool:
         mock_store.outline_return = None
         result = outline_tool.execute(course_name="Nonexistent")
         assert "No course found matching 'Nonexistent'" in result
+
+    def test_outline_includes_lesson_links(self, outline_tool, mock_store):
+        mock_store.outline_return = {
+            "title": "MCP Course",
+            "course_link": "https://example.com/mcp",
+            "instructor": "Jane Doe",
+            "lessons": [
+                {"lesson_number": 0, "lesson_title": "Introduction",
+                 "lesson_link": "https://example.com/mcp/lesson/0"},
+                {"lesson_number": 1, "lesson_title": "Getting Started",
+                 "lesson_link": None}
+            ]
+        }
+        result = outline_tool.execute(course_name="MCP")
+        assert "[Lesson 0: Introduction](https://example.com/mcp/lesson/0)" in result
+        assert "- Lesson 1: Getting Started" in result
+        assert "[Course Link](https://example.com/mcp)" in result
 
 
 # ── ToolManager tests ──────────────────────────────────────────────────────

@@ -115,7 +115,7 @@ class CourseSearchTool(Tool):
             if url:
                 header = f"[{label}]({url})"
             else:
-                header = f"[{label}]"
+                header = label
 
             formatted.append(f"{header}\n{doc}")
 
@@ -163,12 +163,18 @@ class CourseOutlineTool(Tool):
 
         lines = [f"# {title}"]
         if course_link:
-            lines.append(f"Course Link: {course_link}")
+            lines.append(f"[Course Link]({course_link})")
+        else:
+            lines.append("Course Link not available")
         lines.append(f"\n## Lessons ({len(lessons)} total)")
         for lesson in lessons:
             num = lesson.get("lesson_number")
             lesson_title = lesson.get("lesson_title", "Untitled")
-            lines.append(f"- Lesson {num}: {lesson_title}")
+            lesson_link = lesson.get("lesson_link")
+            if lesson_link:
+                lines.append(f"- [Lesson {num}: {lesson_title}]({lesson_link})")
+            else:
+                lines.append(f"- Lesson {num}: {lesson_title}")
 
         return "\n".join(lines)
 
