@@ -10,7 +10,7 @@ class Config:
     """Configuration settings for the RAG system"""
     # DeepSeek API settings
     DEEPSEEK_API_KEY: str = os.getenv("DEEPSEEK_API_KEY", "")
-    DEEPSEEK_MODEL: str = "deepseek-v4-flash"
+    DEEPSEEK_MODEL: str = "deepseek-v4-pro"
     DEEPSEEK_BASE_URL: str = "https://api.deepseek.com"
     
     # Embedding model settings

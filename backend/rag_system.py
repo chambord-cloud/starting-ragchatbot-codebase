@@ -101,19 +101,46 @@ class RAGSystem:
         
         return total_courses, total_chunks
     
+    def _get_outline_context(self, query: str) -> Optional[str]:
+        """
+        Detect if query is asking for a course outline/syllabus/structure,
+        and pre-fetch the outline so we can return it directly.
+        """
+        outline_keywords = [
+            'outline', 'syllabus', 'curriculum', 'structure',
+            'all lessons', 'lesson list', 'table of contents',
+            'what are the lessons', 'list of lessons',
+        ]
+        query_lower = query.lower()
+        if not any(kw in query_lower for kw in outline_keywords):
+            return None
+
+        # Use vector search to find matching course (handles partial/approximate names)
+        course_title = self.vector_store._resolve_course_name(query)
+        if course_title:
+            outline = self.vector_store.get_course_outline(course_title)
+            if outline:
+                return self.outline_tool._format_outline(outline)
+
+        return None
+
     def query(self, query: str, session_id: Optional[str] = None) -> Tuple[str, List[str]]:
         """
         Process a user query using the RAG system with tool-based search.
-        
+
         Args:
             query: User's question
             session_id: Optional session ID for conversation context
-            
+
         Returns:
             Tuple of (response, sources list - empty for tool-based approach)
         """
-        # Create prompt for the AI with clear instructions
-        prompt = f"""Answer this question about course materials: {query}"""
+        # Pre-fetch course outline for outline/syllabus queries.
+        # Return it directly — no need to round-trip through the AI, which
+        # might drop lesson links or summarize the outline.
+        outline_context = self._get_outline_context(query)
+        if outline_context:
+            return outline_context, []
         
         # Get conversation history if session exists
         history = None
@@ -122,7 +149,7 @@ class RAGSystem:
         
         # Generate response using AI with tools
         response = self.ai_generator.generate_response(
-            query=prompt,
+            query=query,
             conversation_history=history,
             tools=self.tool_manager.get_tool_definitions(),
             tool_manager=self.tool_manager
@@ -147,7 +174,10 @@ class RAGSystem:
         return {
             "total_courses": len(courses_metadata),
             "courses": [
-                {"title": c["title"], "course_link": c.get("course_link")}
+                {
+                    "title": c["title"],
+                    "course_link": c.get("course_link")
+                }
                 for c in courses_metadata
             ]
         }

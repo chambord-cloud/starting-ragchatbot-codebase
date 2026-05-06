@@ -4,7 +4,7 @@ const API_URL = '/api';
 // Configure marked.js to open links in new tabs
 marked.use({
     renderer: {
-        link({ href, title, text }) {
+        link(href, title, text) {
             // Guard against malformed links from AI responses
             if (!href || href === 'undefined' || href === 'null' || href === '#') {
                 return text || href || '';
@@ -226,10 +226,10 @@ async function loadCourseStats() {
             if (data.courses && data.courses.length > 0) {
                 courseTitles.innerHTML = data.courses
                     .map(c => {
-                        if (c.course_link) {
-                            return `<div class="course-title-item"><a href="${c.course_link}" target="_blank" rel="noopener">${escapeHtml(c.title)}</a></div>`;
-                        }
-                        return `<div class="course-title-item">${escapeHtml(c.title)}</div>`;
+                        const titleHtml = c.course_link
+                            ? `<a href="${c.course_link}" target="_blank" rel="noopener">${escapeHtml(c.title)}</a>`
+                            : escapeHtml(c.title);
+                        return `<div class="course-title-item">${titleHtml}</div>`;
                     })
                     .join('');
             } else {
