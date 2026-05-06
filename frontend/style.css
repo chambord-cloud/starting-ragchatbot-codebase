@@ -5,7 +5,7 @@
     padding: 0;
 }
 
-/* CSS Variables */
+/* CSS Variables — Dark theme (default) */
 :root {
     --primary-color: #2563eb;
     --primary-hover: #1d4ed8;
@@ -25,6 +25,31 @@
     --link-color: #60a5fa;
     --link-hover: #93c5fd;
     --link-visited: #a78bfa;
+    --toggle-bg: #1e293b;
+    --toggle-icon: #f1f5f9;
+}
+
+/* Light theme overrides */
+[data-theme="light"] {
+    --primary-color: #2563eb;
+    --primary-hover: #1d4ed8;
+    --background: #f8fafc;
+    --surface: #ffffff;
+    --surface-hover: #f1f5f9;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --border-color: #e2e8f0;
+    --user-message: #2563eb;
+    --assistant-message: #f1f5f9;
+    --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
+    --focus-ring: rgba(37, 99, 235, 0.2);
+    --welcome-bg: #eff6ff;
+    --welcome-border: #2563eb;
+    --link-color: #2563eb;
+    --link-hover: #1d4ed8;
+    --link-visited: #7c3aed;
+    --toggle-bg: #ffffff;
+    --toggle-icon: #0f172a;
 }
 
 /* Base Styles */
@@ -37,6 +62,28 @@ body {
     overflow: hidden;
     margin: 0;
     padding: 0;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Smooth theme transitions on key elements */
+.sidebar,
+.chat-main,
+.chat-container,
+.chat-messages,
+.chat-input-container,
+.message-content,
+.suggested-item,
+.stat-item,
+#chatInput,
+#sendButton,
+.source-badge,
+.sources-collapsible,
+.course-title-item,
+.course-stats,
+#newChatButton,
+.stats-header,
+.suggested-header {
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 /* Container - Full Screen */
@@ -835,6 +882,70 @@ details[open] .suggested-header::before {
     border-color: var(--primary-color);
     color: var(--primary-color);
     transform: translateX(2px);
+}
+
+/* Theme Toggle Button */
+.theme-toggle {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 100;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 1px solid var(--border-color);
+    background: var(--toggle-bg);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    transition: background-color 0.3s ease, border-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: var(--shadow);
+}
+
+.theme-toggle:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+    border-color: var(--primary-color);
+}
+
+.theme-toggle:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.theme-toggle:active {
+    transform: scale(0.95);
+}
+
+.theme-toggle svg {
+    width: 20px;
+    height: 20px;
+    stroke: var(--toggle-icon);
+    fill: none;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.theme-toggle .sun-icon {
+    opacity: 1;
+    transform: rotate(0deg) scale(1);
+}
+
+.theme-toggle .moon-icon {
+    position: absolute;
+    opacity: 0;
+    transform: rotate(90deg) scale(0.5);
+}
+
+[data-theme="light"] .theme-toggle .sun-icon {
+    opacity: 0;
+    transform: rotate(-90deg) scale(0.5);
+}
+
+[data-theme="light"] .theme-toggle .moon-icon {
+    opacity: 1;
+    transform: rotate(0deg) scale(1);
 }
 
 /* Responsive Design */
