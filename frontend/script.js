@@ -40,6 +40,12 @@ function setupEventListeners() {
     });
     
     
+    // New chat button
+    document.getElementById('newChatButton').addEventListener('click', () => {
+        createNewSession();
+        chatInput.value = '';
+    });
+
     // Suggested questions
     document.querySelectorAll('.suggested-item').forEach(button => {
         button.addEventListener('click', (e) => {
