@@ -161,11 +161,10 @@ class CourseOutlineTool(Tool):
         course_link = outline.get("course_link")
         lessons = outline.get("lessons", [])
 
-        lines = [f"# {title}"]
         if course_link:
-            lines.append(f"[Course Link]({course_link})")
+            lines = [f"# [{title}]({course_link})"]
         else:
-            lines.append("Course Link not available")
+            lines = [f"# {title}"]
         lines.append(f"\n## Lessons ({len(lessons)} total)")
         for lesson in lessons:
             num = lesson.get("lesson_number")

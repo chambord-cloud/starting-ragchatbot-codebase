@@ -5,7 +5,7 @@ from vector_store import VectorStore
 from ai_generator import AIGenerator
 from session_manager import SessionManager
 from search_tools import ToolManager, CourseSearchTool, CourseOutlineTool
-from models import Course, Lesson, CourseChunk
+from models import Course
 
 class RAGSystem:
     """Main orchestrator for the Retrieval-Augmented Generation system"""
@@ -143,7 +143,11 @@ class RAGSystem:
     
     def get_course_analytics(self) -> Dict:
         """Get analytics about the course catalog"""
+        courses_metadata = self.vector_store.get_all_courses_metadata()
         return {
-            "total_courses": self.vector_store.get_course_count(),
-            "course_titles": self.vector_store.get_existing_course_titles()
+            "total_courses": len(courses_metadata),
+            "courses": [
+                {"title": c["title"], "course_link": c.get("course_link")}
+                for c in courses_metadata
+            ]
         }

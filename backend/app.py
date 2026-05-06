@@ -51,10 +51,15 @@ class QueryResponse(BaseModel):
     sources: List[SourceInfo]
     session_id: str
 
+class CourseInfo(BaseModel):
+    """Basic course information"""
+    title: str
+    course_link: Optional[str] = None
+
 class CourseStats(BaseModel):
     """Response model for course statistics"""
     total_courses: int
-    course_titles: List[str]
+    courses: List[CourseInfo]
 
 # API Endpoints
 
@@ -87,7 +92,7 @@ async def get_course_stats():
         analytics = rag_system.get_course_analytics()
         return CourseStats(
             total_courses=analytics["total_courses"],
-            course_titles=analytics["course_titles"]
+            courses=[CourseInfo(**c) for c in analytics["courses"]]
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -108,7 +113,6 @@ async def startup_event():
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import os
-from pathlib import Path
 
 
 class DevStaticFiles(StaticFiles):
