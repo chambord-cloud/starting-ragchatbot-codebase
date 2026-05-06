@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv run *)",
+      "Bash(curl -s http://localhost:8001/api/courses)",
+      "Bash(kill %1)",
+      "Bash(wait)",
+      "Bash(curl -s http://localhost:8002/api/courses)",
+      "Bash(curl -s -X POST http://localhost:8002/api/query -H 'Content-Type: application/json' -d '{\"query\": \"What is MCP?\"}')",
+      "Bash(git commit -m ' *)",
+      "Bash(chmod +x run.sh)",
+      "Bash(./run.sh)",
+      "Bash(curl -s http://localhost:8000/api/courses)",
+      "Bash(curl -s http://localhost:8000/script.js -H \"Cache-Control: no-cache\")",
+      "Bash(curl -s -X POST http://localhost:8000/api/query -H \"Content-Type: application/json\" -d '{\"query\": \"What is covered in lesson 5 of the MCP course?\"}')",
+      "Bash(python3 -m json.tool)",
+      "Bash(curl -s http://localhost:8000/style.css)",
+      "Bash(pkill -f \"uvicorn app:app\")",
+      "Bash(pkill -f \"run.sh\")",
+      "Bash(lsof -ti:8000)",
+      "Bash(xargs kill)",
+      "Bash(curl -s http://localhost:8000/script.js)"
+    ]
+  }
+}
