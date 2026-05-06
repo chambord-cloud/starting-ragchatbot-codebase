@@ -1,6 +1,16 @@
 // API base URL - use relative path to work from any host
 const API_URL = '/api';
 
+// Configure marked.js to open links in new tabs
+marked.use({
+    renderer: {
+        link({ href, title, text }) {
+            const titleAttr = title ? ` title="${title}"` : '';
+            return `<a href="${href}" target="_blank" rel="noopener"${titleAttr}>${text}</a>`;
+        }
+    }
+});
+
 // Global state
 let currentSessionId = null;
 
@@ -122,10 +132,44 @@ function addMessage(content, type, sources = null, isWelcome = false) {
     let html = `<div class="message-content">${displayContent}</div>`;
     
     if (sources && sources.length > 0) {
+        const sourceBadges = sources.map((source, i) => {
+            // Normalise: support legacy string format and new {label, url} object format
+            const label = typeof source === 'string' ? source : (source.label || 'Unknown source');
+            const url = typeof source === 'object' ? (source.url || null) : null;
+            const match = label.match(/^(.+?)\s*-\s*Lesson\s+(\d+)$/);
+
+            const iconSvg = `<svg class="source-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+            </svg>`;
+
+            const content = match
+                ? `<span class="source-course">${match[1]}</span>
+                   <span class="source-lesson">Lesson ${match[2]}</span>`
+                : `<span class="source-course">${label}</span>`;
+
+            if (url) {
+                return `<a href="${url}" target="_blank" rel="noopener" class="source-badge source-link" title="Open: ${label}">
+                    ${iconSvg}
+                    ${content}
+                </a>`;
+            }
+            return `<span class="source-badge" title="${label}">
+                ${iconSvg}
+                ${content}
+            </span>`;
+        }).join('');
+
         html += `
             <details class="sources-collapsible">
-                <summary class="sources-header">Sources</summary>
-                <div class="sources-content">${sources.join(', ')}</div>
+                <summary class="sources-header">
+                    <svg class="sources-header-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                    </svg>
+                    ${sources.length} source${sources.length > 1 ? 's' : ''}
+                </summary>
+                <div class="sources-content">${sourceBadges}</div>
             </details>
         `;
     }
